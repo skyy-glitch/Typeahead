@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Local stats file
+search_stats.json
+
+# Local editor settings
+.vscode/

@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Indian Cities Typeahead — Trie-Powered Search</title>
+    <!-- Google Fonts: Outfit (modern sans) and JetBrains Mono (monospaced stats) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="index.css">
+</head>
+<body class="dark-theme">
+    <!-- Visual background glow effects -->
+    <div class="bg-glow bg-glow-1"></div>
+    <div class="bg-glow bg-glow-2"></div>
+
+    <div class="app-container">
+        <!-- HEADER -->
+        <header>
+            <div class="brand">
+                <span class="logo-icon">🏙️</span>
+                <div class="brand-text">
+                    <h1>Typeahead</h1>
+                    <p class="subtitle">Trie-powered prefix-search over 10,000+ Indian cities</p>
+                </div>
+            </div>
+            
+            <div class="header-actions">
+                <button id="db-manager-toggle" class="btn btn-secondary" aria-label="Open database manager">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="9" y1="3" x2="9" y2="21"></line></svg>
+                    <span>Manage Database</span>
+                </button>
+                <button id="theme-toggle" class="btn btn-icon" aria-label="Toggle theme">
+                    <!-- Moon Icon -->
+                    <svg id="moon-icon" class="theme-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+                    <!-- Sun Icon -->
+                    <svg id="sun-icon" class="theme-icon hidden" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+                </button>
+            </div>
+        </header>
+
+        <!-- MAIN LAYOUT -->
+        <div class="main-layout">
+            <!-- LEFT COLUMN: Search and Suggestions -->
+            <main class="search-panel">
+                <div class="search-wrapper glass">
+                    <div class="search-icon-wrapper">
+                        <svg class="search-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                    </div>
+                    <input 
+                        type="text" 
+                        id="search-input" 
+                        placeholder="Search Indian cities (e.g. mum, ban, del)..." 
+                        autocomplete="off"
+                        spellcheck="false"
+                        autofocus
+                    >
+                    <div class="search-meta">
+                        <div id="query-time-badge" class="time-badge hidden">
+                            <span id="query-time-val">0.00 ms</span>
+                        </div>
+                        <kbd class="kbd-hint">Esc</kbd>
+                    </div>
+                </div>
+
+                <!-- RECENT SEARCHES -->
+                <div id="recent-searches-container" class="recent-searches-container glass hidden">
+                    <span class="recent-label">Recent:</span>
+                    <div id="recent-searches-list" class="recent-searches-list">
+                        <!-- Dynamically filled -->
+                    </div>
+                </div>
+
+                <!-- TRIE PATH VISUALIZER -->
+                <div id="trie-path-container" class="trie-path-card glass hidden">
+                    <div class="trie-path-header">
+                        <span class="trie-path-title">Trie Traversal Path</span>
+                        <span id="trie-path-status" class="trie-path-status">O(k) lookup</span>
+                    </div>
+                    <div id="trie-path-nodes" class="trie-path-nodes">
+                        <!-- e.g. Root ➔ M ➔ U ➔ M -->
+                    </div>
+                </div>
+
+                <!-- Suggestions Dropdown/Container -->
+                <div id="suggestions-container" class="suggestions-container glass hidden">
+                    <ul id="suggestions-list" class="suggestions-list">
+                        <!-- Dynamically filled -->
+                    </ul>
+                    <div class="suggestions-footer">
+                        <span>Use <kbd>↑</kbd> <kbd>↓</kbd> to navigate, <kbd>Enter</kbd> to select, <kbd>Esc</kbd> to close</span>
+                        <span id="results-count">0 results</span>
+                    </div>
+                </div>
+
+                <!-- Welcome/Instructional State -->
+                <div id="welcome-state" class="welcome-card glass">
+                    <div class="welcome-content">
+                        <h3>Lightning Fast Prefix Search</h3>
+                        <p>Start typing a city name to search the Trie prefix tree. The Trie search executes in <strong>O(k)</strong> time complexity, which is independent of the dataset size (10,000+ entries) and completes in microseconds!</p>
+                        <div class="demo-suggestions">
+                            <span>Try searching:</span>
+                            <button class="demo-tag" data-search="mum">Mumbai</button>
+                            <button class="demo-tag" data-search="ban">Bengaluru</button>
+                            <button class="demo-tag" data-search="del">Delhi</button>
+                            <button class="demo-tag" data-search="hyd">Hyderabad</button>
+                        </div>
+                    </div>
+                </div>
+            </main>
+
+            <!-- RIGHT COLUMN: Stats Dashboard -->
+            <aside class="stats-panel">
+                <!-- STATS CARD -->
+                <div class="stats-card glass">
+                    <h2>Trie Performance & Stats</h2>
+                    
+                    <div class="stats-grid">
+                        <div class="stat-box">
+                            <span class="stat-label">Total Cities</span>
+                            <span id="stat-total-cities" class="stat-value font-mono">10,000</span>
+                        </div>
+                        <div class="stat-box">
+                            <span class="stat-label">Trie Nodes</span>
+                            <span id="stat-trie-nodes" class="stat-value font-mono">58,241</span>
+                        </div>
+                        <div class="stat-box">
+                            <span class="stat-label">Index Build Time</span>
+                            <span id="stat-build-time" class="stat-value font-mono">0.0 ms</span>
+                        </div>
+                        <div class="stat-box">
+                            <span class="stat-label">Queries Run</span>
+                            <span id="stat-queries-run" class="stat-value font-mono">0</span>
+                        </div>
+                    </div>
+
+                    <!-- Latency Sparkline Section -->
+                    <div class="sparkline-section">
+                        <div class="sparkline-header">
+                            <h3>Query Latency History</h3>
+                            <span id="avg-latency-val" class="font-mono">Avg: 0.000 ms</span>
+                        </div>
+                        <div class="sparkline-container">
+                            <svg id="sparkline-svg" viewBox="0 0 200 60" preserveAspectRatio="none">
+                                <!-- Sparkline path will be drawn here -->
+                                <path id="sparkline-path" d="" fill="none" stroke="url(#sparkline-grad)" stroke-width="2"></path>
+                                <path id="sparkline-area" d="" fill="url(#area-grad)" opacity="0.15"></path>
+                                <!-- Gradients definitions -->
+                                <defs>
+                                    <linearGradient id="sparkline-grad" x1="0%" y1="0%" x2="100%" y2="0%">
+                                        <stop offset="0%" stop-color="#818cf8" />
+                                        <stop offset="100%" stop-color="#c084fc" />
+                                    </linearGradient>
+                                    <linearGradient id="area-grad" x1="0%" y1="0%" x2="0%" y2="100%">
+                                        <stop offset="0%" stop-color="#818cf8" stop-opacity="0.5" />
+                                        <stop offset="100%" stop-color="#818cf8" stop-opacity="0" />
+                                    </linearGradient>
+                                </defs>
+                            </svg>
+                            <!-- Latency Y Axis labels -->
+                            <div class="sparkline-y-labels">
+                                <span id="sparkline-y-max">1.0ms</span>
+                                <span id="sparkline-y-min">0.0ms</span>
+                            </div>
+                        </div>
+                        <div class="sparkline-footer">
+                            <span>Showing last 15 searches</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- POPULAR SEARCHES LEADERBOARD -->
+                <div class="stats-card glass popular-card">
+                    <h2>Popular Search Leaderboard</h2>
+                    <div id="popular-searches-list" class="popular-searches-list">
+                        <div class="no-popular-data">No searches recorded yet. Select suggestions to start!</div>
+                    </div>
+                </div>
+            </aside>
+        </div>
+
+        <!-- SLIDE-OUT DATABASE MANAGER DRAWER -->
+        <div id="db-drawer" class="drawer">
+            <div id="drawer-overlay" class="drawer-overlay"></div>
+            <div class="drawer-content glass">
+                <div class="drawer-header">
+                    <h2>Database Manager</h2>
+                    <button id="db-close" class="btn btn-icon" aria-label="Close database manager">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                    </button>
+                </div>
+                
+                <div class="drawer-body">
+                    <!-- ADD CITY SECTION -->
+                    <section class="drawer-section">
+                        <h3>Add Custom City</h3>
+                        <form id="add-city-form">
+                            <div class="form-group">
+                                <label for="input-city">City Name</label>
+                                <input type="text" id="input-city" placeholder="e.g. Noida, Indirapuram" required autocomplete="off">
+                            </div>
+                            <div class="form-group">
+                                <label for="input-state">State / Union Territory</label>
+                                <input type="text" id="input-state" placeholder="e.g. Uttar Pradesh" required autocomplete="off">
+                            </div>
+                            <div class="form-group">
+                                <label for="input-tier">City Tier Classification</label>
+                                <select id="input-tier">
+                                    <option value="1">Tier 1 (Metro)</option>
+                                    <option value="2">Tier 2 (Major City)</option>
+                                    <option value="3" selected>Tier 3 (Other)</option>
+                                </select>
+                            </div>
+                            <button type="submit" class="btn btn-primary btn-block">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                                <span>Add to Trie Index</span>
+                            </button>
+                        </form>
+                    </section>
+
+                    <!-- REMOVE CITY SECTION -->
+                    <section class="drawer-section">
+                        <h3>Remove Custom City</h3>
+                        <form id="remove-city-form">
+                            <div class="form-group">
+                                <label for="remove-city-input">City Name</label>
+                                <div class="input-with-button">
+                                    <input type="text" id="remove-city-input" placeholder="e.g. Noida" required autocomplete="off">
+                                    <button type="submit" class="btn btn-danger">Delete</button>
+                                </div>
+                            </div>
+                        </form>
+                    </section>
+
+                    <!-- STATS SUMMARY -->
+                    <section class="drawer-section info-section">
+                        <h3>About Dynamic Updates</h3>
+                        <p>Adding or removing a city modifications are applied <strong>in-memory</strong> to the running Trie prefix tree instantly. Custom added cities are immediately searchable with prefix lookup and will reflect in the Trie performance stats.</p>
+                    </section>
+                </div>
+            </div>
+        </div>
+
+        <!-- NOTIFICATION CONTAINER -->
+        <div id="notification-container" class="notification-container"></div>
+    </div>
+
+    <!-- Script references -->
+    <script src="app.js"></script>
+</body>
+</html>
